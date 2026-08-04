@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Platform (OpenAI GPT-4o)</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f5; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { background: white; padding: 30px; border-radius: 12px; max-width: 700px; width: 100%; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        h2, h3 { text-align: center; color: #2c3e50; margin-top: 0; }
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #ccc; font-size: 15px; }
+        button { background: #10a37f; color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #0e8e6d; }
+        .btn-danger { background: #e74c3c !important; }
+        .btn-danger:hover { background: #c0392b !important; }
+        .hidden { display: none !important; }
+        .status { text-align: center; font-weight: bold; margin-top: 10px; }
+        
+        .progress-container { width: 100%; background-color: #e0e0e0; border-radius: 8px; margin-top: 15px; overflow: hidden; height: 20px; display: none; }
+        .progress-bar { width: 0%; height: 100%; background-color: #10a37f; text-align: center; line-height: 20px; color: white; font-size: 12px; font-weight: bold; transition: width 0.3s; }
+
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .btn-logout-small { width: auto; padding: 6px 14px; margin: 0; font-size: 13px; }
+
+        .question-card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 5px solid #10a37f; margin-bottom: 20px; }
+        .images-grid { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; }
+        .question-img { max-width: 48%; height: auto; border-radius: 8px; border: 1px solid #ddd; }
+        .option-btn { background: #ecf0f1; color: #2c3e50; text-align: left; margin: 6px 0; font-weight: normal; }
+        .option-btn:hover { background: #bdc3c7; }
+        .option-btn.selected { background: #10a37f; color: white; }
+        
+        .score-box { text-align: center; padding: 20px; background: #e8f8f5; border-radius: 8px; margin-bottom: 20px; }
+        .score-number { font-size: 48px; color: #10a37f; font-weight: bold; }
+        .error-item { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+        .error-item span.wrong { color: #e74c3c; font-weight: bold; }
+        .error-item span.correct { color: #10a37f; font-weight: bold; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; background: #e0e0e0; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <!-- 1. ФОРМА ВХОДА -->
+    <div id="loginSection">
+        <h2>🔑 Вход / Giriş / Login</h2>
+        <input type="email" id="email" placeholder="Email / Логин">
+        <input type="password" id="password" placeholder="Пароль / Şifrə">
+        <button id="loginBtn">Daxil ol / Войти</button>
+        <div id="loginStatus" class="status"></div>
+    </div>
+
+    <!-- 2. ПАНЕЛЬ АДМИНИСТРАТОРА -->
+    <div id="adminSection" class="hidden">
+        <h2>🤖 Панель Администратора (OpenAI GPT-4o)</h2>
+        
+        <label><b>1. Язык экзамена:</b></label>
+        <select id="langSelect">
+            <option value="az">🇦🇿 Azərbaycan dili</option>
+            <option value="ru">🇷🇺 Русский язык</option>
+            <option value="en">🇬🇧 English Language</option>
+        </select>
+
+        <label><b>2. Тип вопросов:</b></label>
+        <select id="typeSelect">
+            <option value="choice">1. С выбором из 4 вариантов (Multiple Choice)</option>
+            <option value="text">2. Без вариантов (Ввод перевода вручную)</option>
+            <option value="blank">3. Вставка слова в предложение (Fill in the blanks)</option>
+        </select>
+
+        <label><b>3. Выберите фото карточек:</b></label>
+        <input type="file" id="photoInput" accept="image/*" multiple>
+
+        <button id="generateBtn">🚀 Сгенерировать тесты через OpenAI</button>
+
+        <div id="progressContainer" class="progress-container">
+            <div id="progressBar" class="progress-bar">0%</div>
+        </div>
+
+        <button id="logoutBtnAdmin" class="btn-danger" style="margin-top:15px;">Выйти из аккаунта</button>
+        <div id="adminStatus" class="status"></div>
+    </div>
+
+    <!-- 3. СТРАНИЦА ЭКЗАМЕНА -->
+    <div id="examSection" class="hidden">
+        <div class="header-bar">
+            <div>
+                <span id="userInfo" style="font-weight: bold; display: block;"></span>
+                <small id="progressInfo" style="color: #7f8c8d;"></small>
+            </div>
+            <button id="logoutBtnStudentHeader" class="btn-danger btn-logout-small">Çıxış / Выйти</button>
+        </div>
+        <hr style="margin-bottom: 20px;">
+
+        <div id="questionContainer"></div>
+
+        <button id="nextBtn" class="hidden">Növbəti / Следующий вопрос ➔</button>
+        <button id="finishBtn" class="hidden" style="background:#27ae60;">İmtahanı bitir / Завершить экзамен</button>
+    </div>
+
+    <!-- 4. СТРАНИЦА РЕЗУЛЬТАТОВ -->
+    <div id="resultSection" class="hidden">
+        <h2>📊 Neticələr / Результаты</h2>
+        <div class="score-box">
+            <div>Оценка / Qiymət (1-10):</div>
+            <div class="score-number" id="finalScore">0 / 10</div>
+            <div id="correctCountText"></div>
+        </div>
+
+        <h3>Разбор ответов / Səhvlərin təhlili:</h3>
+        <div id="reviewContainer"></div>
+
+        <button id="logoutBtnStudent" class="btn-danger" style="margin-top:20px;">Выйти / Çıxış</button>
+    </div>
+
+</div>
+
+<!-- Подключение Firebase и OpenAI SDK -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import OpenAI from "https://cdn.jsdelivr.net/npm/openai@4.52.7/+esm";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDDolC3lzs9QAp81E4Gj7E858P_o33prMY",
+        authDomain: "englishexam-5afbb.firebaseapp.com",
+        projectId: "englishexam-5afbb",
+        messagingSenderId: "62639772655",
+        appId: "1:62639772655:web:5c575f50430868efcf5c1a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const ADMIN_EMAIL = "nesib@admin.az";
+    
+    // ВСТАВЬТЕ СЮДА ВАШ КЛЮЧ OPENAI (sk-svcacct-...)
+    const OPENAI_API_KEY = "sk-svcacct-... ВСТАВЬТЕ_СВОЙ_КЛЮЧ";
+
+    // Инициализация OpenAI клиент с флагом разрешающим вызовы из браузера
+    const openai = new OpenAI({
+        apiKey: OPENAI_API_KEY,
+        dangerouslyAllowBrowser: true
+    });
+
+    let examQuestions = [];
+    let currentQuestionIndex = 0;
+    let userAnswers = [];
+    let currentUserEmail = "";
+
+    function updateProgress(percent, statusText) {
+        const pContainer = document.getElementById('progressContainer');
+        const pBar = document.getElementById('progressBar');
+        const statusDiv = document.getElementById('adminStatus');
+
+        pContainer.style.display = "block";
+        pBar.style.width = percent + "%";
+        pBar.innerText = percent + "%";
+        statusDiv.style.color = "#10a37f";
+        statusDiv.innerText = statusText;
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', () => {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const loginStatus = document.getElementById('loginStatus');
+
+        loginStatus.style.color = "#10a37f";
+        loginStatus.innerText = "⏳ Вход...";
+
+        signInWithEmailAndPassword(auth, email, password)
+            .then(() => loginStatus.innerText = "")
+            .catch((err) => {
+                loginStatus.style.color = "#e74c3c";
+                loginStatus.innerText = "❌ Ошибка: " + err.message;
+            });
+    });
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            currentUserEmail = user.email;
+            document.getElementById('loginSection').classList.add('hidden');
+
+            if (user.email === ADMIN_EMAIL) {
+                document.getElementById('adminSection').classList.remove('hidden');
+                document.getElementById('examSection').classList.add('hidden');
+            } else {
+                document.getElementById('adminSection').classList.add('hidden');
+                document.getElementById('examSection').classList.remove('hidden');
+                document.getElementById('userInfo').innerText = "👤 Ученик: " + user.email;
+                startExam();
+            }
+        } else {
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('adminSection').classList.add('hidden');
+            document.getElementById('examSection').classList.add('hidden');
+            document.getElementById('resultSection').classList.add('hidden');
+        }
+    });
+
+    document.getElementById('logoutBtnAdmin').addEventListener('click', () => signOut(auth));
+    document.getElementById('logoutBtnStudentHeader').addEventListener('click', () => signOut(auth));
+    document.getElementById('logoutBtnStudent').addEventListener('click', () => signOut(auth));
+
+    function compressImage(file, maxWidth = 800, quality = 0.6) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(dataUrl);
+                };
+            };
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+        const fileInput = document.getElementById('photoInput');
+        const qType = document.getElementById('typeSelect').value;
+        const qLang = document.getElementById('langSelect').value;
+        const statusDiv = document.getElementById('adminStatus');
+
+        const files = Array.from(fileInput.files);
+        if (files.length === 0) {
+            alert("Выберите хотя бы 1 фото!");
+            return;
+        }
+
+        try {
+            updateProgress(20, `⚡ Сжатие изображений...`);
+            const compressedImages = await Promise.all(files.map(file => compressImage(file)));
+            
+            updateProgress(45, `🤖 Анализ через OpenAI (GPT-4o)...`);
+
+            let langPrompt = "Язык вопросов: Азербайджанский.";
+            if (qLang === 'ru') langPrompt = "Язык вопросов: Русский.";
+            if (qLang === 'en') langPrompt = "Язык вопросов: Английский.";
+
+            let typePrompt = "";
+            if (qType === 'choice') {
+                typePrompt = `Верни JSON массив объектов формата: [{"question": "Вопрос", "correctAnswer": "Правильный", "options": ["Правильный", "Вариант2", "Вариант3", "Вариант4"]}]`;
+            } else if (qType === 'text') {
+                typePrompt = `Верни JSON массив объектов формата: [{"question": "Слово", "correctAnswer": "Перевод"}]`;
+            } else if (qType === 'blank') {
+                typePrompt = `Верни JSON массив объектов формата: [{"sentence": "Предложение с ___", "correctAnswer": "Слово"}]`;
+            }
+
+            const content = [
+                { type: "text", text: `Извлеки учебный материал с изображений и составь тесты. Ответь ТОЛЬКО чистым JSON массивом без оформления и без слов markdown. ${langPrompt} ${typePrompt}` }
+            ];
+
+            compressedImages.forEach(base64Image => {
+                content.push({
+                    type: "image_url",
+                    image_url: { url: base64Image, detail: "low" }
+                });
+            });
+
+            const response = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: content }],
+                max_tokens: 2000,
+                response_format: { type: "json_object" }
+            });
+
+            let rawText = response.choices[0].message.content.trim();
+            
+            let parsedData = JSON.parse(rawText);
+            let parsedArray = Array.isArray(parsedData) ? parsedData : (parsedData.questions || parsedData.data || Object.values(parsedData)[0]);
+
+            updateProgress(80, `💾 Сохранение вопросов в Firestore...`);
+
+            const saveTasks = parsedArray.map(item => {
+                return addDoc(collection(db, "questions"), {
+                    ...item,
+                    type: qType,
+                    lang: qLang,
+                    imageUrls: compressedImages,
+                    createdAt: new Date()
+                });
+            });
+
+            await Promise.all(saveTasks);
+
+            updateProgress(100, `🎉 Успешно! Сгенерировано вопросов: ${parsedArray.length}`);
+            statusDiv.style.color = "#10a37f";
+            fileInput.value = "";
+        } catch (err) {
+            console.error(err);
+            document.getElementById('progressContainer').style.display = "none";
+            statusDiv.style.color = "#e74c3c";
+            statusDiv.innerText = "❌ Ошибка OpenAI: " + err.message;
+        }
+    });
+
+    async function startExam() {
+        const querySnapshot = await getDocs(collection(db, "questions"));
+        let allQuestions = [];
+        querySnapshot.forEach((doc) => allQuestions.push({ id: doc.id, ...doc.data() }));
+
+        if (allQuestions.length === 0) {
+            document.getElementById('questionContainer').innerHTML = "<p>Вопросов пока нет. Попросите админа добавить карточки!</p>";
+            return;
+        }
+
+        examQuestions = shuffle(allQuestions).slice(0, 20);
+        currentQuestionIndex = 0;
+        userAnswers = [];
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        const q = examQuestions[currentQuestionIndex];
+        const container = document.getElementById('questionContainer');
+        document.getElementById('progressInfo').innerText = `Вопрос ${currentQuestionIndex + 1} из ${examQuestions.length}`;
+
+        let html = `<div class="question-card">`;
+        html += `<span class="badge">Язык: ${q.lang ? q.lang.toUpperCase() : 'AZ/RU'}</span>`;
+
+        if (q.imageUrls && q.imageUrls.length > 0) {
+            html += `<div class="images-grid">`;
+            q.imageUrls.forEach(url => {
+                html += `<img src="${url}" class="question-img">`;
+            });
+            html += `</div>`;
+        }
+
+        if (q.type === 'choice') {
+            html += `<h3>${q.question}</h3>`;
+            const shuffledOptions = shuffle([...q.options]);
+            shuffledOptions.forEach(opt => {
+                html += `<button class="option-btn" onclick="selectOption(this, '${opt}')">${opt}</button>`;
+            });
+        } else if (q.type === 'text') {
+            html += `<h3>Напишите перевод/ответ: <b>"${q.question}"</b></h3>`;
+            html += `<input type="text" id="textInput" placeholder="Введите ответ..." style="margin-top:10px;">`;
+        } else if (q.type === 'blank') {
+            html += `<h3>Заполните пропуск:</h3>`;
+            html += `<p style="font-size:18px;"><b>${q.sentence}</b></p>`;
+            html += `<input type="text" id="blankInput" placeholder="Введите слово..." style="margin-top:10px;">`;
+        }
+        html += `</div>`;
+
+        container.innerHTML = html;
+
+        document.getElementById('nextBtn').classList.add('hidden');
+        document.getElementById('finishBtn').classList.add('hidden');
+
+        if (q.type === 'text' || q.type === 'blank') {
+            const inputId = q.type === 'text' ? 'textInput' : 'blankInput';
+            const input = document.getElementById(inputId);
+            input.addEventListener('input', () => {
+                userAnswers[currentQuestionIndex] = input.value.trim().toLowerCase();
+                toggleNavButtons();
+            });
+        }
+    }
+
+    window.selectOption = function(btn, value) {
+        document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        userAnswers[currentQuestionIndex] = value;
+        toggleNavButtons();
+    };
+
+    function toggleNavButtons() {
+        if (currentQuestionIndex === examQuestions.length - 1) {
+            document.getElementById('finishBtn').classList.remove('hidden');
+            document.getElementById('nextBtn').classList.add('hidden');
+        } else {
+            document.getElementById('nextBtn').classList.remove('hidden');
+            document.getElementById('finishBtn').classList.add('hidden');
+        }
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+        currentQuestionIndex++;
+        renderQuestion();
+    });
+
+    document.getElementById('finishBtn').addEventListener('click', async () => {
+        let correctCount = 0;
+
+        examQuestions.forEach((q, index) => {
+            const userAns = (userAnswers[index] || "").toLowerCase();
+            const correctAns = (q.correctAnswer || "").toLowerCase();
+            if (userAns === correctAns) correctCount++;
+        });
+
+        const total = examQuestions.length;
+        const score10 = Math.round((correctCount / total) * 10);
+
+        await addDoc(collection(db, "results"), {
+            student: currentUserEmail,
+            score: score10,
+            correctCount: correctCount,
+            totalQuestions: total,
+            date: new Date()
+        });
+
+        document.getElementById('examSection').classList.add('hidden');
+        document.getElementById('resultSection').classList.remove('hidden');
+
+        document.getElementById('finalScore').innerText = `${score10} / 10`;
+        document.getElementById('correctCountText').innerText = `Правильно: ${correctCount} из ${total}`;
+
+        let reviewHtml = "";
+        examQuestions.forEach((q, index) => {
+            const userAns = userAnswers[index] || "Нет ответа";
+            const correctAns = q.correctAnswer;
+            const isCorrect = userAns.toLowerCase() === correctAns.toLowerCase();
+
+            reviewHtml += `<div class="error-item">`;
+            reviewHtml += `<div><b>Вопрос ${index + 1}:</b> ${q.question || q.sentence}</div>`;
+            reviewHtml += `<div>Ваш ответ: <span class="${isCorrect ? 'correct' : 'wrong'}">${userAns}</span></div>`;
+            if (!isCorrect) {
+                reviewHtml += `<div>Правильный ответ: <span class="correct">${correctAns}</span></div>`;
+            }
+            reviewHtml += `</div>`;
+        });
+
+        document.getElementById('reviewContainer').innerHTML = reviewHtml;
+    });
+
+    function shuffle(array) {
+        let arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+</script>
+
+</body>
+</html>
